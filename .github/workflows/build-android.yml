@@ -21,7 +21,7 @@ jobs:
           work-dir: "."
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: apk-${{ matrix.abi }}
           path: bin/*.apk
@@ -31,22 +31,46 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - uses: actions/checkout@v4
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download armeabi artifact
+        uses: actions/download-artifact@v4
         with:
           name: apk-armeabi-v7a
           path: artifacts/armeabi
-      - name: Create GitHub Release and upload APKs
+
+      - name: Download arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: apk-arm64-v8a
+          path: artifacts/arm64
+
+      - id: create_release
+        name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload release assets
+
+      - name: Find built APK file paths
+        run: |
+          echo "ARMV7=$(ls artifacts/armeabi/*.apk | head -n1)" >> $GITHUB_ENV
+          echo "ARM64=$(ls artifacts/arm64/*.apk | head -n1)" >> $GITHUB_ENV
+
+      - name: Upload armeabi to release
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/armeabi
-          asset_name: your-app-armeabi-v7a.apk
+          asset_path: ${{ env.ARMV7 }}
+          asset_name: ${{ github.repository }}-armeabi-v7a.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload arm64 to release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARM64 }}
+          asset_name: ${{ github.repository }}-arm64-v8a.apk
           asset_content_type: application/vnd.android.package-archive
