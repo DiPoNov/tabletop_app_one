@@ -1,0 +1,255 @@
+#:kivy 2.1.0
+
+ScreenManager:
+    MainMenu:
+    BattleScreen:
+    IndepBattleScreen:
+    StatusScreen:
+    TableScreen:
+
+<MainMenu>:
+    name: 'menu'
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 18
+        spacing: 14
+        Label:
+            text: 'ПОМОЩНИК ДЛЯ НАСТОЛЬНОЙ ИГРЫ'
+            size_hint_y: None
+            height: '56dp'
+            bold: True
+            color: 1, 1, 1, 1
+        Button:
+            text: 'Стартовые наборы'
+            size_hint_y: None
+            height: '56dp'
+            on_release: root.manager.current = 'status'
+        Button:
+            text: 'Рассчитать бой'
+            size_hint_y: None
+            height: '56dp'
+            on_release: root.manager.current = 'battle'
+        Button:
+            text: 'Рассчитать бой (независимый)'
+            size_hint_y: None
+            height: '56dp'
+            on_release: root.manager.current = 'indep'
+        Button:
+            text: 'Статус армий'
+            size_hint_y: None
+            height: '56dp'
+            on_release: root.manager.current = 'status'
+        Button:
+            text: 'Показать таблицу'
+            size_hint_y: None
+            height: '56dp'
+            on_release: root.manager.current = 'table'
+
+<BattleScreen>:
+    name: 'battle'
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 12
+        spacing: 8
+        Label:
+            text: 'РАССЧИТАТЬ БОЙ'
+            size_hint_y: None
+            height: '48dp'
+            color: 1, 1, 1, 1
+        GridLayout:
+            cols: 2
+            size_hint_y: None
+            height: '240dp'
+            spacing: 8
+            Label:
+                text: 'Атакующий'
+                color: 1, 1, 1, 1
+            Label:
+                text: 'Обороняющийся'
+                color: 1, 1, 1, 1
+            Spinner:
+                id: atk_unit1
+                text: '—'
+                values: root.get_attack_units()
+            Spinner:
+                id: def_unit1
+                text: '—'
+                values: root.get_defense_units()
+            Spinner:
+                id: atk_unit2
+                text: '—'
+                values: ['—'] + root.get_attack_units()
+            Spinner:
+                id: def_unit2
+                text: '—'
+                values: ['—'] + root.get_defense_units()
+            Label:
+                text: 'Кубик атакующего'
+            Label:
+                text: 'Кубик обороняющегося'
+            TextInput:
+                id: atk_dice
+                text: '0'
+                multiline: False
+                input_filter: 'int'
+            TextInput:
+                id: def_dice
+                text: '0'
+                multiline: False
+                input_filter: 'int'
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: '48dp'
+            Label:
+                text: 'Укрепления'
+                size_hint_x: 0.6
+                color: 1, 1, 1, 1
+            Spinner:
+                id: forts
+                text: '0'
+                values: ['0', '1', '2', '3']
+                size_hint_x: 0.4
+        Label:
+            id: result_label
+            text: ''
+            size_hint_y: None
+            height: '80dp'
+            color: 0.9, 0.9, 0.8, 1
+        BoxLayout:
+            size_hint_y: None
+            height: '56dp'
+            Button:
+                text: 'Рассчитать'
+                on_release: root.do_calc()
+            Button:
+                text: 'Назад'
+                on_release: app.root.current = 'menu'
+
+<IndepBattleScreen>:
+    name: 'indep'
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 12
+        spacing: 8
+        Label:
+            text: 'НЕЗАВИСИМЫЙ РАСЧЁТ БОЯ'
+            size_hint_y: None
+            height: '48dp'
+            color: 1, 1, 1, 1
+        GridLayout:
+            cols: 2
+            size_hint_y: None
+            height: '240dp'
+            spacing: 8
+            Label:
+                text: 'Атакующий'
+                color: 1, 1, 1, 1
+            Label:
+                text: 'Обороняющийся'
+                color: 1, 1, 1, 1
+            Spinner:
+                id: atk_unit1
+                text: '—'
+                values: root.get_attack_units()
+            Spinner:
+                id: def_unit1
+                text: '—'
+                values: root.get_defense_units()
+            Spinner:
+                id: atk_unit2
+                text: '—'
+                values: ['—'] + root.get_attack_units()
+            Spinner:
+                id: def_unit2
+                text: '—'
+                values: ['—'] + root.get_defense_units()
+            Label:
+                text: 'Кубик атакующего'
+            Label:
+                text: 'Кубик обороняющегося'
+            TextInput:
+                id: atk_dice
+                text: '0'
+                multiline: False
+                input_filter: 'int'
+            TextInput:
+                id: def_dice
+                text: '0'
+                multiline: False
+                input_filter: 'int'
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: '48dp'
+            Label:
+                text: 'Укрепления'
+                size_hint_x: 0.6
+                color: 1, 1, 1, 1
+            Spinner:
+                id: forts
+                text: '0'
+                values: ['0', '1', '2', '3']
+                size_hint_x: 0.4
+        Label:
+            id: indep_result
+            text: ''
+            size_hint_y: None
+            height: '80dp'
+            color: 0.9, 0.9, 0.8, 1
+        BoxLayout:
+            size_hint_y: None
+            height: '56dp'
+            Button:
+                text: 'Рассчитать'
+                on_release: root.do_calc_indep()
+            Button:
+                text: 'Назад'
+                on_release: app.root.current = 'menu'
+
+<StatusScreen>:
+    name: 'status'
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 12
+        spacing: 10
+        Label:
+            text: 'СТАТУС АРМИЙ'
+            size_hint_y: None
+            height: '48dp'
+            color: 1, 1, 1, 1
+        ScrollView:
+            GridLayout:
+                id: status_grid
+                cols: 1
+                size_hint_y: None
+                height: self.minimum_height
+                row_default_height: '28dp'
+        BoxLayout:
+            size_hint_y: None
+            height: '56dp'
+            Button:
+                text: 'Назад'
+                on_release: app.root.current = 'menu'
+
+<TableScreen>:
+    name: 'table'
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 8
+        spacing: 8
+        Label:
+            text: 'ТАБЛИЦА'
+            size_hint_y: None
+            height: '48dp'
+            color: 1, 1, 1, 1
+        Image:
+            source: 'assets/таблица.jpg'
+            allow_stretch: True
+            keep_ratio: True
+        BoxLayout:
+            size_hint_y: None
+            height: '56dp'
+            Button:
+                text: 'Назад'
+                on_release: app.root.current = 'menu'
