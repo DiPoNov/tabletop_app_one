@@ -11,35 +11,51 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        abi: [arm64-v8a]
+        arch: [armeabi-v7a, arm64-v8a]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.8'
+          python-version: '3.9'
 
-      - name: Install Buildozer dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git unzip openjdk-11-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          sudo apt-get install -y \
+            git \
+            zip \
+            unzip \
+            openjdk-11-jdk \
+            autoconf \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            python3-pip
 
       - name: Install Buildozer
-        run: pip install buildozer
+        run: pip install buildozer cython
 
       - name: Build APK
         run: |
           buildozer -v android debug
         env:
-          # Add any required environment variables here
-          BUILD_OZER_ARMEABI: ${{ matrix.abi == 'armeabi-v7a' && '1' || '0' }}
+          BUILD_OZER_ARMEABI: ${{ matrix.arch == 'armeabi-v7a' && '1' || '0' }}
+          # Set architecture for build
+          P4A_ARCH: ${{ matrix.arch }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: apk-${{ matrix.abi }}
+          name: apk-${{ matrix.arch }}
           path: bin/*.apk
           retention-days: 7
 
@@ -53,25 +69,11 @@ jobs:
         with:
           path: artifacts
 
-      - name: Display structure of downloaded files
-        run: ls -R artifacts
-
       - name: Create Release
-        id: create_release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-
-      - name: Upload ARMv7 APK
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifacts/apk-armeabi-v7a/*.apk
-
-      - name: Upload ARM64 APK
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifacts/apk-arm64-v8a/*.apk
+          files: |
+            artifacts/apk-armeabi-v7a/*.apk
+            artifacts/apk-arm64-v8a/*.apk
