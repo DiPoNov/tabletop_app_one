@@ -25,7 +25,7 @@ source.exclude_dirs = tests, bin, venv, docs, .github
 version = 0.1
 
 # (list) Application requirements
-requirements = python3,kivy==2.3.0,kivymd,pillow,openssl,requests,pyjnius==1.4.1
+requirements = python3,kivy==2.3.0,kivymd,pillow,openssl,requests,cython==0.29.36,pyjnius==1.3.0
 
 # (str) Icon of the application
 icon.filename = icon.png
@@ -100,3 +100,5 @@ build_dir = .buildozer
 
 # (str) Path to build output (i.e. .apk, .ipa) storage
 bin_dir = bin
+p4a.download_tries = 8
+p4a.download_sleep = 4
