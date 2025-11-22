@@ -2,31 +2,23 @@ name: StalinGame
 
 on:
   push:
-    branches: [ master ]   # укажи тут ту ветку, в которую ты пушишь
+    branches: [ master ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        abi: [ armeabi-v7a, arm64-v8a ]  # две архитектуры
+        abi: [ armeabi-v7a, arm64-v8a ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildozer (optional: uses marketplace action)
+      - name: Set up Docker Buildozer
         uses: ArtemSBulgakov/buildozer-action@v1
         with:
-          # параметры action: buildozer command и рабочая директория (если нужно)
           buildozer-cmd: "buildozer android debug"
           work-dir: "."
-          # при необходимости можно передать python-version, pip-install и т.д.
-
-      # если action не работает, можно запустить docker напрямую (альтернатива)
-      # - name: Run buildozer in Docker
-      #   run: |
-      #     docker run --rm -v "${{ github.workspace }}:/work" -w /work kivy/buildozer \
-      #       buildozer -v android debug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v3
