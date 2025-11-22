@@ -17,8 +17,8 @@ jobs:
       - name: Set up Docker Buildozer
         uses: ArtemSBulgakov/buildozer-action@v1
         with:
-          buildozer-cmd: "buildozer android debug"
-          work-dir: "."
+          command: "android debug"
+          workdir: "."
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
