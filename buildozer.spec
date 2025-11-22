@@ -80,7 +80,7 @@ android.presplash_color = #FFFFFF
 #
 
 # (str) python-for-android branch to use
-p4a.branch = develop
+p4a.branch = master
 
 # (str) Bootstrap to use for android builds
 p4a.bootstrap = sdl2
