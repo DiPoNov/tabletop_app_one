@@ -1,4 +1,4 @@
-name: Build Android APKs
+name: StalinGame
 
 on:
   push:
