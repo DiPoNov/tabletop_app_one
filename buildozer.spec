@@ -25,7 +25,7 @@ source.exclude_dirs = tests, bin, venv, docs, .github
 version = 0.1
 
 # (list) Application requirements
-requirements = python3,kivy==2.3.0,kivymd,pillow,openssl,requests
+requirements = python3,kivy==2.3.0,kivymd,pillow,openssl,requests,pyjnius==1.4.1
 
 # (str) Icon of the application
 icon.filename = icon.png
