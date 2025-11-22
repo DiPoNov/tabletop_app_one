@@ -28,18 +28,37 @@ jobs:
             git \
             zip \
             unzip \
+            make \
+            build-essential \
+            gcc \
+            g++ \
+            clang \
+            binutils \
             openjdk-11-jdk \
             autoconf \
+            automake \
+            autoconf-archive \
             libtool \
             pkg-config \
+            libltdl-dev \
+            cmake \
+            python3-pip \
+            python3-setuptools \
+            python3-dev \
+            cython3 \
             zlib1g-dev \
+            libssl-dev \
+            libffi-dev \
             libncurses5-dev \
             libncursesw5-dev \
             libtinfo-dev \
-            cmake \
-            libffi-dev \
-            libssl-dev \
-            python3-pip
+            libbz2-dev \
+            libexpat1-dev \
+            libreadline-dev \
+            libsqlite3-dev \
+            libgdbm-dev \
+            libgdbm-compat-dev \
+            liblzma-dev
 
       - name: Install Buildozer & Cython
         run: pip install --upgrade buildozer cython
