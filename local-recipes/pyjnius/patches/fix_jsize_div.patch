@@ -1,0 +1,13 @@
+*** Begin Patch
+*** Update File: jnius/jnius_conversion.pxi
+@@
+-    py_bytes = py_uni.encode('utf-16')
+-    # skip byte-order mark
+-    buff = (<char *>py_bytes) + sizeof(jchar)
+-    j_strlen = len(py_bytes) / sizeof(jchar) - 1
++    py_bytes = py_uni.encode('utf-16')
++    # skip byte-order mark
++    buff = (<char *>py_bytes) + sizeof(jchar)
++    # use integer division to avoid C double -> int assignment errors
++    j_strlen = <jsize>(len(py_bytes) // sizeof(jchar) - 1)
+*** End Patch
