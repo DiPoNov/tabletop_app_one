@@ -12,6 +12,7 @@ jobs:
     strategy:
       matrix:
         arch: [armeabi-v7a, arm64-v8a]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,16 +61,40 @@ jobs:
             libgdbm-compat-dev \
             liblzma-dev
 
-      - name: Install Buildozer & Cython
+      - name: Install Buildozer and Cython
         run: pip install --upgrade buildozer cython==0.29.36
+
+      # 👉 Автопатч PyJNIus, чтобы исправить ошибки Cython
+      - name: Patch PyJNIus before build
+        run: |
+          echo "Preparing PyJNIus patching..."
+          # Запускаем p4a, чтобы Buildozer скачал зависимости (в т.ч. PyJNIus)
+          buildozer android p4a -- --version || true
+
+          echo "Searching for PyJNIus sources..."
+          PJNIUS_PATH=$(find .buildozer -type f -name "jnius_utils.pxi" | head -1 | xargs dirname)
+
+          echo "PyJNIus path: $PJNIUS_PATH"
+
+          if [ -d "$PJNIUS_PATH" ]; then
+            echo "Applying PyJNIus FIXES..."
+
+            # Исправление long → int
+            sed -i 's/isinstance(arg, long)/isinstance(arg, int)/g' $PJNIUS_PATH/jnius_utils.pxi
+
+            # Исправление типа double → jsize (int)
+            sed -i 's/len(py_bytes) \/ sizeof(jchar) - 1/<int>(len(py_bytes) \/ sizeof(jchar) - 1)/g' $PJNIUS_PATH/jnius_conversion.pxi
+
+            echo "PyJNIus has been patched!"
+          else
+            echo "❌ PyJNIus NOT FOUND! Build may fail."
+          fi
 
       - name: Build APK
         env:
           P4A_ARCH: ${{ matrix.arch }}
         run: |
           echo "Building for arch: $P4A_ARCH"
-          # Если вы хотите собирать только указанную архитектуру,
-          # можно передать переменную окружения в p4a:
           buildozer -v android debug
 
       - name: Upload APK artifact
