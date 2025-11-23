@@ -100,5 +100,6 @@ build_dir = .buildozer
 
 # (str) Path to build output (i.e. .apk, .ipa) storage
 bin_dir = bin
+p4a.local_recipes = ./local-recipes
 p4a.download_tries = 8
 p4a.download_sleep = 4
