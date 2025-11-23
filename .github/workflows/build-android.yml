@@ -61,7 +61,7 @@ jobs:
             liblzma-dev
 
       - name: Install Buildozer & Cython
-        run: pip install --upgrade buildozer cython
+        run: pip install --upgrade buildozer cython==0.29.36
 
       - name: Build APK
         env:
