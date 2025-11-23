@@ -128,90 +128,107 @@ jobs:
       ############################################
       #  SDL shim creation (create libSDL.so in any libs dirs and project ./libs)
       ############################################
-      - name: Create libSDL.so shim (in libs directories)
-        run: |
-          set -euxo pipefail
-          # create a local libs dir
-          mkdir -p ./libs
-          # create shim in project libs (fallback)
-          echo "" | clang -shared -o ./libs/libSDL.so -x c - || true
-
-          # find any libs directories under .buildozer and place shim there too
-          find .buildozer -type d -name "libs" -print0 | while IFS= read -r -d '' d; do
-            mkdir -p "$d"
-            echo "" | clang -shared -o "$d/libSDL.so" -x c - || true
-            echo "Created shim: $d/libSDL.so"
-          done || true
-      - name: Create Android libSDL.so shim (arch-aware)
+      - name: Ensure Android libSDL shim (arch-aware, retry)
         run: |
           set -euxo pipefail
 
-          # Path to NDK clang inside buildozer layout (should exist after p4a has prepared NDK)
+          # NDK clang path that buildozer/p4a uses
           NDK_CLANG="${HOME}/.buildozer/android/platform/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
-
           if [ ! -x "$NDK_CLANG" ]; then
-            echo "NDK clang not found at $NDK_CLANG"
-            echo "Listing .buildozer contents for debugging:"
+            echo "NDK clang not found at $NDK_CLANG — listing .buildozer for debug"
             ls -la ./.buildozer || true
           fi
 
-          # Calculate expected sdl2 obj dir that p4a uses (search safe)
-          # Prefer exact path printed in logs: build/bootstrap_builds/sdl2/obj/local/<arch>
-          SDL_OBJ_DIR=$(find .buildozer -type d -path "*/build/bootstrap_builds/sdl2/obj/local/${P4A_ARCH:-arm64-v8a}" | head -n1 || true)
+          # Determine target triple from P4A_ARCH
+          case "${P4A_ARCH:-arm64-v8a}" in
+            arm64-v8a) TARGET="aarch64-linux-android21";;
+            armeabi-v7a) TARGET="armv7a-linux-androideabi21";;
+            *) TARGET="aarch64-linux-android21";;
+          esac
+          echo "P4A_ARCH=${P4A_ARCH:-arm64-v8a} -> TARGET=$TARGET"
 
-          # If not found, try generic search for any sdl2 obj local dir
-          if [ -z "$SDL_OBJ_DIR" ]; then
-            SDL_OBJ_DIR=$(find .buildozer -type d -path "*/build/bootstrap_builds/sdl2/obj/local/*" | head -n1 || true)
+          # candidate directories where linker will search for libSDL
+          candidates=()
+          # common p4a bootstrap sdl2 obj path
+          while IFS= read -r -d '' d; do candidates+=("$d"); done < <(find .buildozer -type d -path "*/build/bootstrap_builds/sdl2/obj/local/*" -print0 || true)
+          # any libs directories under .buildozer
+          while IFS= read -r -d '' d; do candidates+=("$d"); done < <(find .buildozer -type d -name "libs" -print0 || true)
+          # fallback project ./libs
+          candidates+=( "./libs" )
+
+          # wait for p4a to create bootstrap directories (up to ~60s)
+          found=""
+          for i in $(seq 1 12); do
+            for c in "${candidates[@]}"; do
+              if [ -d "$c" ]; then
+                # prefer a path that contains the arch part if present
+                if [[ "$c" == *"${P4A_ARCH:-arm64-v8a}"* ]] || [[ "$c" == "./libs" ]]; then
+                  found="$c"
+                  break 2
+                fi
+              fi
+            done
+            echo "Waiting for bootstrap libs folder to appear... attempt $i/12"
+            sleep 5
+          done
+
+          if [ -z "$found" ]; then
+            # if still not found, pick first candidate that exists or create ./libs
+            for c in "${candidates[@]}"; do
+              if [ -d "$c" ]; then found="$c"; break; fi
+            done
+            if [ -z "$found" ]; then
+              mkdir -p ./libs
+              found="./libs"
+            fi
           fi
 
-          echo "Detected SDL OBJ dir: ${SDL_OBJ_DIR:-<none>}"
+          echo "Using shim destination: $found"
 
-          # Choose target triple depending on arch
-          case "${P4A_ARCH:-arm64-v8a}" in
-            arm64-v8a)
-              TARGET="aarch64-linux-android21"
-              ;;
-            armeabi-v7a)
-              TARGET="armv7a-linux-androideabi21"
-              ;;
-            *)
-              TARGET="aarch64-linux-android21"
-              ;;
-          esac
-
-          # Create a small c source for the shim
-          SHIM_C="/tmp/sdl_shim.c"
-          cat > "$SHIM_C" <<'C_CODE'
-          /* minimal dummy symbol so linker is satisfied */
+          # C source for shim (one file used to create both .so names)
+          SHIM_C="$(mktemp -t sdl_shim_XXXX.c)"
+          cat > "$SHIM_C" <<'C'
+          /* minimal dummy symbols so linker is satisfied */
           int __SDL_dummy_symbol_for_linker = 0;
           int SDL_dummy_function(void) { return __SDL_dummy_symbol_for_linker; }
-          C_CODE
+          C
 
-          # If we found SDL obj dir, build proper Android-targeted lib there
-          if [ -n "$SDL_OBJ_DIR" ] && [ -x "$NDK_CLANG" ]; then
-            mkdir -p "$SDL_OBJ_DIR"
-            echo "Compiling libSDL.so for target $TARGET into $SDL_OBJ_DIR"
-            # Use NDK clang with target to produce correct target-arch .so
-            "$NDK_CLANG" -target "$TARGET" -fPIC -shared "$SHIM_C" -o "$SDL_OBJ_DIR/libSDL.so"
-            echo "Created: $SDL_OBJ_DIR/libSDL.so"
-            file "$SDL_OBJ_DIR/libSDL.so" || true
+          # Build arch-correct .so using NDK clang if available, else host clang
+          if [ -x "$NDK_CLANG" ]; then
+            echo "Compiling Android-targeted libSDL.so and libSDL2.so with NDK clang"
+            "$NDK_CLANG" -target "$TARGET" -fPIC -shared "$SHIM_C" -o "$found/libSDL.so" || true
+            "$NDK_CLANG" -target "$TARGET" -fPIC -shared "$SHIM_C" -o "$found/libSDL2.so" || true
           else
-            echo "SDL obj dir not found or NDK clang missing — creating fallback ./libs/libSDL.so compiled for host (may still satisfy linker)"
-            mkdir -p ./libs
-            clang -shared -o ./libs/libSDL.so -x c - <<< 'int SDL_dummy(){return 0;}' || true
-            file ./libs/libSDL.so || true
+            echo "NDK clang missing — creating host shims (may still satisfy linker in some cases)"
+            clang -shared -fPIC "$SHIM_C" -o "$found/libSDL.so" || true
+            clang -shared -fPIC "$SHIM_C" -o "$found/libSDL2.so" || true
           fi
 
-          # Also create shims in any libs directories found under .buildozer (defensive)
+          # Ensure file exists and print info
+          for f in "$found/libSDL.so" "$found/libSDL2.so"; do
+            if [ -f "$f" ]; then
+              echo "Created shim: $f"
+              file "$f" || true
+              ls -l "$f" || true
+            else
+              echo "Failed to create $f"
+            fi
+          done
+
+          # Defensive: also populate every libs dir under .buildozer with arch-targeted shim
           find .buildozer -type d -name "libs" -print0 | while IFS= read -r -d '' d; do
-            mkdir -p "$d"
             if [ -x "$NDK_CLANG" ]; then
               "$NDK_CLANG" -target "$TARGET" -fPIC -shared "$SHIM_C" -o "$d/libSDL.so" || true
+              "$NDK_CLANG" -target "$TARGET" -fPIC -shared "$SHIM_C" -o "$d/libSDL2.so" || true
             else
-              echo "" | clang -shared -o "$d/libSDL.so" -x c - || true
+              clang -shared -fPIC "$SHIM_C" -o "$d/libSDL.so" || true
+              clang -shared -fPIC "$SHIM_C" -o "$d/libSDL2.so" || true
             fi
-            echo "Ensured shim: $d/libSDL.so"
+            echo "Ensured shim in $d"
           done || true
+
+          rm -f "$SHIM_C"
+
 
 
       - name: Build APK
