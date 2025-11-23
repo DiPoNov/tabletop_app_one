@@ -58,42 +58,42 @@ jobs:
           mkdir -p local-recipes/pyjnius/patches
 
           cat << 'PY' > local-recipes/pyjnius/recipe.py
-from pythonforandroid.recipes.pyjnius import PyjniusRecipe as BaseRecipe
-
-class PyjniusFixedRecipe(BaseRecipe):
-    def prebuild_arch(self, arch):
-        print(">>> Applying PyJNIus patches...")
-        self.apply_patch("patches/fix_long.patch")
-        self.apply_patch("patches/fix_jsize.patch")
-        super().prebuild_arch(arch)
-
-recipe = PyjniusFixedRecipe()
-PY
-
-          cat << 'PATCH' > local-recipes/pyjnius/patches/fix_long.patch
-*** Begin Patch
-*** Update File: jnius/jnius_utils.pxi
-@@
--        if r == 'S' or r == 'I':
--            if isinstance(arg, int) or (
--                    (isinstance(arg, long) and arg < 2147483648)):
-+        if r == 'S' or r == 'I':
-+            # Python3: no long type
-+            if isinstance(arg, int) and arg < 2147483648:
-                 score += 10
-                 continue
-*** End Patch
-PATCH
-
-          cat << 'PATCH' > local-recipes/pyjnius/patches/fix_jsize.patch
-*** Begin Patch
-*** Update File: jnius/jnius_conversion.pxi
-@@
--    j_strlen = len(py_bytes) / sizeof(jchar) - 1
-+    # integer division, converting to jsize
-+    j_strlen = <jsize>(len(py_bytes) // sizeof(jchar) - 1)
-*** End Patch
-PATCH
+          from pythonforandroid.recipes.pyjnius import PyjniusRecipe as BaseRecipe
+          
+          class PyjniusFixedRecipe(BaseRecipe):
+              def prebuild_arch(self, arch):
+                  print(">>> Applying PyJNIus patches...")
+                  self.apply_patch("patches/fix_long.patch")
+                  self.apply_patch("patches/fix_jsize.patch")
+                  super().prebuild_arch(arch)
+          
+          recipe = PyjniusFixedRecipe()
+          PY
+          
+                    cat << 'PATCH' > local-recipes/pyjnius/patches/fix_long.patch
+          *** Begin Patch
+          *** Update File: jnius/jnius_utils.pxi
+          @@
+          -        if r == 'S' or r == 'I':
+          -            if isinstance(arg, int) or (
+          -                    (isinstance(arg, long) and arg < 2147483648)):
+          +        if r == 'S' or r == 'I':
+          +            # Python3: no long type
+          +            if isinstance(arg, int) and arg < 2147483648:
+                           score += 10
+                           continue
+          *** End Patch
+          PATCH
+          
+                    cat << 'PATCH' > local-recipes/pyjnius/patches/fix_jsize.patch
+          *** Begin Patch
+          *** Update File: jnius/jnius_conversion.pxi
+          @@
+          -    j_strlen = len(py_bytes) / sizeof(jchar) - 1
+          +    # integer division, converting to jsize
+          +    j_strlen = <jsize>(len(py_bytes) // sizeof(jchar) - 1)
+          *** End Patch
+          PATCH
 
       ############################################
       #  Trigger p4a download (makes pyjnius sources appear), then patch if needed
