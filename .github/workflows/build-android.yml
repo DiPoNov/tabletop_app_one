@@ -90,6 +90,17 @@ jobs:
             echo "❌ PyJNIus NOT FOUND! Build may fail."
           fi
 
+      - name: Create fake libSDL.so shim
+        run: |
+          SHIM_DIR=$(find .buildozer -type d -name "libs" | head -1)
+          echo "Found libs dir: $SHIM_DIR"
+          if [ -d "$SHIM_DIR" ]; then
+            echo "Creating fake libSDL.so shim..."
+            echo "" | clang -shared -o $SHIM_DIR/libSDL.so -x c -
+            echo "Shim created!"
+          else
+            echo "SDL libs directory not found!"
+          fi
       - name: Build APK
         env:
           P4A_ARCH: ${{ matrix.arch }}
