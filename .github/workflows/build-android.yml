@@ -36,20 +36,28 @@ jobs:
             zlib1g-dev libssl-dev libffi-dev \
             libncurses5-dev libncursesw5-dev libtinfo-dev \
             libbz2-dev libexpat1-dev libreadline-dev libsqlite3-dev \
-            libgdbm-dev libgdbm-compat-dev \
-            liblzma-dev
+            libgdbm-dev libgdbm-compat-dev liblzma-dev
 
-      - name: Install Buildozer and Cython
-        run: pip install --upgrade buildozer cython==0.29.36
+      - name: Install Buildozer and pinned Cython
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install --upgrade buildozer
+          pip install --upgrade cython==0.29.36
+
+      - name: Clean previous builds (force fresh)
+        run: |
+          rm -rf ./.buildozer/android/platform/build-* || true
+          rm -rf ./.buildozer/android/platform/python-for-android || true
+          rm -rf ./.buildozer/android/platform/buildozer || true
 
       ############################################
-      #  PyJNIus FIXED LOCAL RECIPE (100% stable)
+      #  local-recipes/pyjnius (safe, via heredoc)
       ############################################
-      - name: Create local PyJNIus patch (safe)
+      - name: Create local PyJNIus recipe and patches
         run: |
           mkdir -p local-recipes/pyjnius/patches
 
-          cat > local-recipes/pyjnius/recipe.py <<'PY'
+          cat << 'PY' > local-recipes/pyjnius/recipe.py
 from pythonforandroid.recipes.pyjnius import PyjniusRecipe as BaseRecipe
 
 class PyjniusFixedRecipe(BaseRecipe):
@@ -62,7 +70,7 @@ class PyjniusFixedRecipe(BaseRecipe):
 recipe = PyjniusFixedRecipe()
 PY
 
-          cat > local-recipes/pyjnius/patches/fix_long.patch <<'PATCH'
+          cat << 'PATCH' > local-recipes/pyjnius/patches/fix_long.patch
 *** Begin Patch
 *** Update File: jnius/jnius_utils.pxi
 @@
@@ -77,7 +85,7 @@ PY
 *** End Patch
 PATCH
 
-          cat > local-recipes/pyjnius/patches/fix_jsize.patch <<'PATCH'
+          cat << 'PATCH' > local-recipes/pyjnius/patches/fix_jsize.patch
 *** Begin Patch
 *** Update File: jnius/jnius_conversion.pxi
 @@
@@ -88,23 +96,61 @@ PATCH
 PATCH
 
       ############################################
-      # SDL SHIM (fixes sdl2 loading during build)
+      #  Trigger p4a download (makes pyjnius sources appear), then patch if needed
       ############################################
-      - name: Create SDL shim
+      - name: Trigger p4a download and patch PyJNIus if present
         run: |
-          LIB_DIR=$(find .buildozer -type d -name libs | head -1 || true)
-          mkdir -p fake_sdl
-          echo "" | clang -shared -o fake_sdl/libSDL.so -x c -
-          echo "Shim SDL created"
+          set -euxo pipefail
+          # Run a lightweight p4a call to make p4a download recipes (may print warnings)
+          buildozer android p4a -- --version || true
 
-      - name: Build apk
+          # Find any downloaded jnius files and patch them in-place (if present)
+          PYJ_FILE=$(find .buildozer -type f -name "jnius_utils.pxi" | head -n1 || true)
+          echo "Found jnius_utils.pxi: '${PYJ_FILE:-<none>}'"
+
+          if [ -n "$PYJ_FILE" ]; then
+            PYJ_DIR=$(dirname "$PYJ_FILE")
+            echo "Patching pyjnius in: $PYJ_DIR"
+
+            cp -v "$PYJ_DIR/jnius_utils.pxi" "$PYJ_DIR/jnius_utils.pxi.bak" || true
+            cp -v "$PYJ_DIR/jnius_conversion.pxi" "$PYJ_DIR/jnius_conversion.pxi.bak" || true
+
+            sed -i 's/isinstance(arg, long)/isinstance(arg, int)/g' "$PYJ_DIR/jnius_utils.pxi" || true
+            sed -i 's/len(py_bytes) \/ sizeof(jchar) - 1/<int>(len(py_bytes) \/ sizeof(jchar) - 1)/g' "$PYJ_DIR/jnius_conversion.pxi" || true
+
+            echo "Patched (in-place) pyjnius sources:"
+            head -n 5 "$PYJ_DIR/jnius_utils.pxi" || true
+            head -n 5 "$PYJ_DIR/jnius_conversion.pxi" || true
+          else
+            echo "PyJNIus sources not yet downloaded — local-recipes will be used when p4a downloads them."
+          fi
+
+      ############################################
+      #  SDL shim creation (create libSDL.so in any libs dirs and project ./libs)
+      ############################################
+      - name: Create libSDL.so shim (in libs directories)
+        run: |
+          set -euxo pipefail
+          # create a local libs dir
+          mkdir -p ./libs
+          # create shim in project libs (fallback)
+          echo "" | clang -shared -o ./libs/libSDL.so -x c - || true
+
+          # find any libs directories under .buildozer and place shim there too
+          find .buildozer -type d -name "libs" -print0 | while IFS= read -r -d '' d; do
+            mkdir -p "$d"
+            echo "" | clang -shared -o "$d/libSDL.so" -x c - || true
+            echo "Created shim: $d/libSDL.so"
+          done || true
+
+      - name: Build APK
         env:
           P4A_ARCH: ${{ matrix.arch }}
         run: |
-          echo "Arch: $P4A_ARCH"
-          buildozer android debug
+          echo "Building for arch: $P4A_ARCH"
+          buildozer -v android debug
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: apk-${{ matrix.arch }}
@@ -113,16 +159,15 @@ PATCH
 
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
-
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - name: Download Artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Release
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
