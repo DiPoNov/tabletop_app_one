@@ -1,0 +1,13 @@
+*** Begin Patch
+*** Update File: jnius/jnius_utils.pxi
+@@
+-        if r == 'S' or r == 'I':
+-            if isinstance(arg, int) or (
+-                    (isinstance(arg, long) and arg < 2147483648)):
++        if r == 'S' or r == 'I':
++            # Python3: no `long` type, use int instead (covers long)
++            if isinstance(arg, int) or (
++                    (isinstance(arg, int) and arg < 2147483648)):
+                 score += 10
+                 continue
+*** End Patch
